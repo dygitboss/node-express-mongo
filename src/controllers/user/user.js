@@ -1,9 +1,11 @@
 import Joi from '@hapi/joi';
 import { notFound } from '@hapi/boom';
-import { models } from 'mongoose';
 
+import models from '../../models';
 import { METHODS, ROLES } from '../../config/constants';
 import { assert } from '../../helpers';
+
+const { User } = models;
 
 export const getUsers = {
   method: METHODS.GET,
@@ -16,9 +18,8 @@ export const getUsers = {
     },
   },
   async handler(req, res) {
-    const users = await models.User.find({}).skip(req.query.skip).limit(req.query.limit);
-    const total = await models.User.countDocuments();
-    res.json({ data: users, total });
+    const { count, rows } = await User.findAndCountAll({ skip: req.query.skip, limit: req.query.limit });
+    res.json({ data: rows, total: count });
   },
 };
 
@@ -31,7 +32,7 @@ export const getUser = {
     },
   },
   async handler(req, res) {
-    const user = await models.User.findOne({ _id: req.params.id });
+    const user = await User.findByPk(req.params.id);
     assert(user, notFound, 'User not found');
     res.json({ data: user });
   },
@@ -45,12 +46,12 @@ export const createUser = {
       first_name: Joi.string(),
       last_name: Joi.string(),
       email: Joi.string().email({ minDomainSegments: 2 }).required(),
+      password: Joi.string().required(),
     },
   },
   async handler(req, res) {
-    const user = new models.User(req.body);
-    await user.save();
-    res.json({ data: user });
+    const user = await User.create(req.body);
+    res.json({ data: await User.findByPk(user.id) });
   },
 };
 
@@ -69,7 +70,7 @@ export const updateUser = {
     },
   },
   async handler(req, res) {
-    const user = await models.User.findOne({ _id: req.params.id });
+    const user = await User.findByPk(req.params.id);
     assert(user, notFound, 'User not found');
     Object.keys(req.body).forEach((param) => {
       user[param] = req.body[param];
@@ -95,11 +96,10 @@ export const updateOrCreateUser = {
     },
   },
   async handler(req, res) {
-    await models.User.updateOne(
-      { _id: req.params.id }, req.body, { upsert: true, setDefaultsOnInsert: true, new: true },
-    );
-    const user = await models.User.findOne({ _id: req.params.id });
-    res.json({ data: user });
+    const [user, created] = await User.findOrCreate({
+      where: { id: req.params.id }, defaults: req.body,
+    });
+    res.json({ data: user || created });
   },
 };
 
@@ -112,9 +112,9 @@ export const deleteUser = {
     },
   },
   async handler(req, res) {
-    const user = await models.User.findOne({ _id: req.params.id });
+    const user = await User.findByPk(req.params.id);
     assert(user, notFound, 'User not found');
-    await user.delete();
+    await user.destroy();
     res.json({ data: user });
   },
 };

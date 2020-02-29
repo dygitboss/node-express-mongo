@@ -4,7 +4,6 @@ import * as Sentry from '@sentry/node';
 import bodyParser from 'body-parser';
 import multer from 'multer';
 import helmet from 'helmet';
-import { connect } from 'mongoose';
 import { wrap } from '@hapi/joi';
 
 // split your internal and external deps with new line for good readability
@@ -93,31 +92,19 @@ const initApp = () => {
   return app;
 };
 
-const initDB = () => {
-  appLogger.info('⏳  Establishing DB connection...');
-  return connect(config.db.url, {
-    useCreateIndex: true,
-    useNewUrlParser: true,
-    poolSize: config.db.poolSize,
-    useFindAndModify: false,
-    useUnifiedTopology: true,
-  })
-    .then(async (res) => {
-      appLogger.info('✅  DB connection established. URI: %s', config.db.url);
-      appLogger.info('⌛  Loading models...');
-      await import('./models/index.js')
-        .then(() => appLogger.info('✅  Models loaded'));
-      return res;
-    });
+const checkDB = async () => {
+  appLogger.info('🔗 Checking DB connection...');
+  const db = await import('./models').then((module) => module.sequelize);
+  return db.sync();
 };
 
 if (!module.parent) { // Don't allow child process spawning
-  initDB()
+  checkDB()
     .then(() => {
       const app = initApp();
       app.listen(config.app.port, () => {
         appLogger.info(`🚀 App is ready for use. Port: ${config.app.port}; PID: ${process.pid}`);
       });
     })
-    .catch((err) => appLogger.error('❌  DB connection failed - %s', err));
+    .catch(() => appLogger.error('❌  DB connection failed'));
 }
