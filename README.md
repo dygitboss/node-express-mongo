@@ -1,9 +1,8 @@
-## Express + Mongo implementation
+## Express + Mysql implementation
 This is a basic example of express + mongo application with some additional packages:
 
 - `Joi` for request validation. See validate middleware and handler methods to see how it's working
-- `mongoose` is ORM to easily manipulate Mongo DB
-- `mongoose-delete` is a bunch of tools to maintain 'soft delete' logic
+- `sequelize` is ORM to easily manipulate SQL like DB's
 - `boom` for http error objects
 
 ## How to setup?
